@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 import os
+import uuid
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
@@ -41,41 +42,6 @@ searcher = CodeSearcher(
     collection_name="code_search",
     embedding_model="BAAI/bge-small-en-v1.5"
 )
-
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-        return """
-        <!doctype html>
-        <html>
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <title>Semantic Code Search API</title>
-                <style>
-                    body { font-family: Arial, sans-serif; background: #0b0f1a; color: #e5e7eb; margin: 0; min-height: 100vh; display: grid; place-items: center; }
-                    .card { max-width: 720px; margin: 24px; padding: 32px; border: 1px solid #1f2937; border-radius: 20px; background: rgba(17, 24, 39, 0.95); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
-                    h1 { margin-top: 0; font-size: 2rem; }
-                    p, li { line-height: 1.6; color: #cbd5e1; }
-                    a { color: #93c5fd; text-decoration: none; font-weight: 700; }
-                    a:hover { text-decoration: underline; }
-                    ul { line-height: 1.8; }
-                    code { background: #111827; padding: 2px 6px; border-radius: 6px; color: #f8fafc; }
-                </style>
-            </head>
-            <body>
-                <main class="card">
-                    <h1>Semantic Code Search API</h1>
-                    <p>The backend is running. This port serves the API, not the React website.</p>
-                    <ul>
-                        <li>API docs: <a href="/docs">/docs</a></li>
-                        <li>OpenAPI: <a href="/openapi.json">/openapi.json</a></li>
-                        <li>Frontend website: run <code>npm run dev</code> in the <code>frontend</code> folder and open the Vite URL, usually <code>http://localhost:5173</code></li>
-                    </ul>
-                </main>
-            </body>
-        </html>
-        """
 
 # Pydantic models for Auth
 class UserSignup(BaseModel):
@@ -128,8 +94,8 @@ class IngestionRecordResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Fix #6: use Pydantic V2 ConfigDict instead of deprecated orm_mode
+    model_config = ConfigDict(from_attributes=True)
 
 # Auth Security
 security = HTTPBearer()
@@ -288,43 +254,123 @@ async def info(current_user: Any = Depends(get_current_user)):
 
 # Ingestion Endpoints
 def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_dirs: Optional[List[str]]):
-    """Background task: ingest a directory using the SHARED Qdrant client via CodeIngester.
+    """Background task: ingest a directory using the SHARED Qdrant client.
+    
+    We intentionally reuse `searcher.client` (the already-open local DB
+    connection) instead of creating a new CodeIngester, which would try to
+    open a *second* connection to the same ./qdrant_db folder — Qdrant's local
+    mode only allows one writer at a time and raises 'use Qdrant server instead'.
     """
     db = next(get_db())
     record = db.query(models.IngestionRecord).filter(models.IngestionRecord.id == record_id).first()
     
     try:
-        from ingest import CodeIngester
-        
+        from pathlib import Path
+        from fastembed import TextEmbedding
+        from qdrant_client.models import VectorParams, Distance, PointStruct
+        from ingest import CodeChunker
+
         # Reuse the shared Qdrant client — no second open needed
-        ingester = CodeIngester(
-            collection_name=searcher.collection_name,
-            client=searcher.client
-        )
-        
+        client = searcher.client
+        collection_name = searcher.collection_name
+
         # Ensure collection exists (idempotent)
-        ingester.create_collection()
-        
-        # Run ingestion
-        stats = ingester.ingest_directory(
-            directory=directory_path,
-            repo_name=repo_name,
-            exclude_dirs=exclude_dirs
-        )
-        
-        if record:
-            record.status = "Complete"
-            record.chunks_count = stats.get('chunks_count', 0)
-            record.files_count = stats.get('files_count', 0)
-            db.commit()
-            
-        print(f"Ingestion done: {stats.get('files_count')} files, {stats.get('chunks_count')} chunks for '{repo_name}'")
+        try:
+            client.get_collection(collection_name)
+        except Exception:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+            )
+
+        # Load embedding model (same one as search.py)
+        embed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        chunker = CodeChunker()
+
+        language_map = {
+            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+            '.java': 'java', '.cpp': 'cpp', '.c': 'c', '.cs': 'csharp',
+            '.go': 'go', '.rs': 'rust', '.rb': 'ruby', '.php': 'php',
+            '.swift': 'swift', '.kt': 'kotlin', '.md': 'markdown',
+        }
+
+        if exclude_dirs is None:
+            exclude_dirs = ['.git', 'node_modules', '__pycache__', '.venv', 'venv']
+
+        directory = Path(directory_path)
+        if not directory.exists():
+            raise ValueError(f"Directory not found: {directory_path}")
+
+        # Find all code files
+        code_files = []
+        for ext in language_map.keys():
+            code_files.extend(directory.rglob(f"*{ext}"))
+        code_files = [f for f in code_files if not any(ex in f.parts for ex in exclude_dirs)]
+
+        print(f"Ingesting {len(code_files)} files from {directory_path}")
+
+        all_points = []
+        total_chunks = 0
+        files_count = 0
+
+        for file_path in code_files:
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+
+                language = language_map.get(file_path.suffix.lower(), 'unknown')
+                chunks = chunker.chunk_file(str(file_path), content, language)
+
+                for chunk in chunks:
+                    embedding = list(embed_model.embed(chunk['text']))[0].tolist()
+                    payload = {
+                        'file_path': str(file_path.relative_to(directory)),
+                        'code_snippet': chunk['text'],
+                        'repo_name': repo_name,
+                        'language': language,
+                        'start_line': chunk['start_line'],
+                        'end_line': chunk['end_line'],
+                        'symbol_type': chunk.get('symbol_type', 'block'),
+                    }
+                    if chunk.get('symbol_name'):
+                        payload['symbol_name'] = chunk['symbol_name']
+                    if chunk.get('signature'):
+                        payload['signature'] = chunk['signature']
+                    if chunk.get('docstring'):
+                        payload['docstring'] = chunk['docstring']
+
+                    all_points.append(PointStruct(
+                        id=uuid.uuid5(uuid.NAMESPACE_URL, f"{repo_name}:{file_path}:{chunk['start_line']}").int & 0x7FFFFFFFFFFFFFFF,
+                        vector=embedding,
+                        payload=payload,
+                    ))
+                    total_chunks += 1
+
+                files_count += 1
+
+                if len(all_points) >= 100:
+                    client.upsert(collection_name=collection_name, points=all_points, wait=True)
+                    print(f"  Upserted batch, total so far: {total_chunks}")
+                    all_points = []
+
+            except Exception as e:
+                print(f"  Error processing {file_path}: {e}")
+                continue
+
+        if all_points:
+            client.upsert(collection_name=collection_name, points=all_points, wait=True)
+
+        record.status = "Complete"
+        record.chunks_count = total_chunks
+        record.files_count = files_count
+        db.commit()
+        print(f"Ingestion done: {files_count} files, {total_chunks} chunks for '{repo_name}'")
 
     except Exception as e:
         if record:
             record.status = "Error"
-            db.commit()
         print(f"Ingestion error for {repo_name}: {e}")
+        db.commit()
     finally:
         db.close()
 
@@ -391,7 +437,7 @@ async def clear_ingestion_history(db: Session = Depends(get_db), current_user: A
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/debug-clear")
-async def debug_clear_qdrant():
+async def debug_clear_qdrant(current_user: Any = Depends(get_current_user)):
     try:
         # Fetch up to 100k points to manually delete everything but 'sample'
         res = searcher.client.scroll(
