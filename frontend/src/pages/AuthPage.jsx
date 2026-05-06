@@ -53,12 +53,21 @@ const AuthPage = ({ onLogin, initialIsLogin = true }) => {
 
         {/* Nav Actions */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsLogin(true)}
-            className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-all ${isLogin ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            Login
-          </button>
+          {isLogin ? (
+            <button
+              onClick={() => setIsLogin(false)}
+              className="text-sm font-black px-5 py-1.5 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition-all shadow-lg shadow-blue-900/30 active:scale-95"
+            >
+              Sign up
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsLogin(true)}
+              className="text-sm font-black px-5 py-1.5 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition-all shadow-lg shadow-blue-900/30 active:scale-95"
+            >
+              Login
+            </button>
+          )}
         </div>
       </header>
 
