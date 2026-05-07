@@ -139,6 +139,18 @@ def ensure_gemini_key():
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured")
 
 
+async def get_current_user(auth: HTTPAuthorizationCredentials = Security(security)):
+    token = auth.credentials
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
+
+
 @app.get("/settings", response_model=AppSettings)
 async def get_settings(current_user: Any = Depends(get_current_user)):
     return _app_settings
@@ -156,17 +168,6 @@ async def update_settings(new_settings: AppSettings, current_user: Any = Depends
         searcher = _create_searcher(_app_settings)
 
     return _app_settings
-
-async def get_current_user(auth: HTTPAuthorizationCredentials = Security(security)):
-    token = auth.credentials
-    payload = decode_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return payload
 
 # Auth Endpoints
 @app.post("/auth/signup", response_model=Token)
