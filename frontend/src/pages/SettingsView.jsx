@@ -9,6 +9,7 @@ const SettingsView = ({
   embeddingModel, setEmbeddingModel,
   semanticWeight, setSemanticWeight,
   overfetchMultiplier, setOverfetchMultiplier,
+  isSavingSettings, handleSaveSettings,
   handleDeleteCollection,
   handleResetSettings,
 }) => {
@@ -21,44 +22,52 @@ const SettingsView = ({
           <Icons.Database /> Connection Settings
         </h3>
         <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-          The backend currently uses local Qdrant storage at <span className="font-mono text-slate-300">./qdrant_db</span> and the fixed collection name <span className="font-mono text-slate-300">code_search</span>.
-          These values are shown for visibility only.
+          Update connection settings carefully. Switching the collection or model may require re-ingesting data.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Qdrant URL</label>
             <input
-              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400 opacity-70"
+              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400"
               value={qdrantUrl}
-              readOnly
+              onChange={(e) => setQdrantUrl(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Collection Name</label>
             <input
-              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300 opacity-70"
+              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300"
               value={collectionName}
-              readOnly
+              onChange={(e) => setCollectionName(e.target.value)}
             />
           </div>
         </div>
-        <button
-          onClick={handleTestConnection}
-          disabled={isTestingConnection}
-          className={`flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${connectionStatus === 'success'
-            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-            : connectionStatus === 'error'
-            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-            }`}
-        >
-          {isTestingConnection ? (
-            <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
-          ) : connectionStatus === 'success' ? (
-            <Icons.Check />
-          ) : null}
-          {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : connectionStatus === 'error' ? 'Connection Failed' : 'Test Connection'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleTestConnection}
+            disabled={isTestingConnection}
+            className={`flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${connectionStatus === 'success'
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+              : connectionStatus === 'error'
+              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+              }`}
+          >
+            {isTestingConnection ? (
+              <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
+            ) : connectionStatus === 'success' ? (
+              <Icons.Check />
+            ) : null}
+            {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : connectionStatus === 'error' ? 'Connection Failed' : 'Test Connection'}
+          </button>
+          <button
+            onClick={handleSaveSettings}
+            disabled={isSavingSettings}
+            className="flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-60"
+          >
+            {isSavingSettings ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
       </div>
 
       {/* Model Settings */}

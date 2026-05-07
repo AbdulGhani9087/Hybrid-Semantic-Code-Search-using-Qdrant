@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import threading
 
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,12 +50,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Searcher
-searcher = CodeSearcher(
-    qdrant_url=None,  # Not used with local path
-    collection_name="code_search",
-    embedding_model="BAAI/bge-small-en-v1.5"
+_settings_lock = threading.Lock()
+
+class AppSettings(BaseModel):
+    qdrant_url: Optional[str] = None
+    collection_name: str = "code_search"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    semantic_weight: float = 0.7
+    overfetch_multiplier: int = 5
+
+_app_settings = AppSettings(
+    qdrant_url=os.getenv("QDRANT_URL") or None,
+    collection_name=os.getenv("QDRANT_COLLECTION", "code_search"),
+    embedding_model=os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"),
+    semantic_weight=float(os.getenv("SEMANTIC_WEIGHT", "0.7")),
+    overfetch_multiplier=int(os.getenv("OVERFETCH_MULTIPLIER", "5")),
 )
+
+def _create_searcher(settings: AppSettings) -> CodeSearcher:
+    return CodeSearcher(
+        qdrant_url=settings.qdrant_url,
+        collection_name=settings.collection_name,
+        embedding_model=settings.embedding_model,
+    )
+
+searcher = _create_searcher(_app_settings)
 
 # Pydantic models for Auth
 class UserSignup(BaseModel):
@@ -117,6 +137,25 @@ MIN_PASSWORD_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
 def ensure_gemini_key():
     if not os.getenv("GEMINI_API_KEY"):
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured")
+
+
+@app.get("/settings", response_model=AppSettings)
+async def get_settings(current_user: Any = Depends(get_current_user)):
+    return _app_settings
+
+
+@app.put("/settings", response_model=AppSettings)
+async def update_settings(new_settings: AppSettings, current_user: Any = Depends(get_current_user)):
+    global searcher
+    with _settings_lock:
+        _app_settings.qdrant_url = new_settings.qdrant_url or None
+        _app_settings.collection_name = new_settings.collection_name
+        _app_settings.embedding_model = new_settings.embedding_model
+        _app_settings.semantic_weight = new_settings.semantic_weight
+        _app_settings.overfetch_multiplier = new_settings.overfetch_multiplier
+        searcher = _create_searcher(_app_settings)
+
+    return _app_settings
 
 async def get_current_user(auth: HTTPAuthorizationCredentials = Security(security)):
     token = auth.credentials

@@ -171,6 +171,8 @@ const App = () => {
             embeddingModel={settings.embeddingModel} setEmbeddingModel={settings.setEmbeddingModel}
             semanticWeight={settings.semanticWeight} setSemanticWeight={settings.setSemanticWeight}
             overfetchMultiplier={settings.overfetchMultiplier} setOverfetchMultiplier={settings.setOverfetchMultiplier}
+            isSavingSettings={settings.isSavingSettings}
+            handleSaveSettings={settings.handleSaveSettings}
             handleDeleteCollection={settings.handleDeleteCollection}
             handleResetSettings={settings.handleResetSettings}
           />

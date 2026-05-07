@@ -41,13 +41,14 @@ class CodeSearcher:
 
     def __init__(
         self,
-        qdrant_url: str = "http://localhost:6333",
+        qdrant_url: Optional[str] = None,
         collection_name: str = "code_search",
         embedding_model: str = "BAAI/bge-small-en-v1.5",
     ) -> None:
-        # Use HTTP endpoint on the provided URL (e.g. http://localhost:6333).
-        # This avoids requiring the separate gRPC port to be exposed.
-        self.client = QdrantClient(path="./qdrant_db")
+        if qdrant_url and qdrant_url.lower() != "local":
+            self.client = QdrantClient(url=qdrant_url)
+        else:
+            self.client = QdrantClient(path="./qdrant_db")
         self.collection_name = collection_name
         # FastEmbed is much lighter - no PyTorch required.
         self.model = TextEmbedding(model_name=embedding_model)
