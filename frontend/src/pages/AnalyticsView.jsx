@@ -108,6 +108,35 @@ const AnalyticsView = ({ analyticsData }) => {
             <span className="text-emerald-500 animate-pulse"><Icons.Code /></span>
             Most Frequently Found Symbols
           </h3>
+          <div className="h-[180px] w-full min-h-[180px] mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analyticsData.symbols || []} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="symbolGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                <XAxis type="number" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={120}
+                  stroke="#94a3b8"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                  itemStyle={{ color: '#fff' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
+                <Bar dataKey="count" fill="url(#symbolGradient)" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
           <div className="overflow-hidden">
             <table className="w-full text-left">
               <thead>
