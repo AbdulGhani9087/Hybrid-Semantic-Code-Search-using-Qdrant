@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Icons from '../components/Icons';
 
-const AuthPage = ({ onLogin, initialIsLogin = true }) => {
+const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
   const [isLogin, setIsLogin] = useState(initialIsLogin)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,9 +41,19 @@ const AuthPage = ({ onLogin, initialIsLogin = true }) => {
   return (
     <div className="flex flex-col h-screen bg-[#0b0f1a] overflow-hidden relative">
       {/* Header */}
-      <header className="w-full z-50 bg-[#0b0f1a]/90 backdrop-blur-md border-b border-slate-800/50 pl-20 pr-8 py-3.5 flex items-center justify-between shrink-0">
+      <header className="w-full z-50 bg-[#0b0f1a]/90 backdrop-blur-md border-b border-slate-800/50 pl-6 pr-8 py-3.5 flex items-center justify-between shrink-0">
         {/* Brand */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
+          {onBackToLanding && (
+            <button
+              onClick={onBackToLanding}
+              className="flex items-center gap-1.5 text-slate-400 hover:text-blue-200 text-xs font-bold uppercase tracking-[0.2em] transition-colors"
+            >
+              <span className="text-blue-400"><Icons.ArrowLeft /></span>
+              Back
+            </button>
+          )}
+          <div className="h-6 w-px bg-slate-800/70"></div>
           <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-indigo-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
             <Icons.Shield size={22} />
           </div>
