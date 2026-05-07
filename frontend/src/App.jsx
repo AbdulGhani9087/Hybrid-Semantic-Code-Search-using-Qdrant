@@ -65,7 +65,11 @@ const App = () => {
             }}
           />
         ) : (
-          <AuthPage onLogin={login} initialIsLogin={authMode === 'login'} />
+          <AuthPage
+            onLogin={login}
+            initialIsLogin={authMode === 'login'}
+            onBackToLanding={() => setShowLanding(true)}
+          />
         )}
         <ConfirmationModal
           isOpen={modalConfig.isOpen}
