@@ -10,6 +10,7 @@ const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const passwordMinLength = 8
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -212,6 +213,10 @@ const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
                     >
                       {showPassword ? <Icons.EyeOff /> : <Icons.Eye />}
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                    <span>{password.length}/{passwordMinLength} characters</span>
+                    <span>{password.length >= passwordMinLength ? 'Length ok' : 'Minimum 8'}</span>
                   </div>
                 </div>
 
