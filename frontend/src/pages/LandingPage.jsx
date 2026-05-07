@@ -196,17 +196,7 @@ const LandingPage = ({ onGetStarted, onLogin }) => {
 				</div>
 
 				{/* Animated Scroll Down Indicator */}
-				<div
-					className="absolute bottom-8 cursor-pointer flex flex-col items-center gap-2 group transition-all duration-300"
-					onClick={() => scrollToSection('models')}
-				>
-					<span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 group-hover:text-blue-400 transition-colors">
-						Scroll to Explore
-					</span>
-					<div className="w-6 h-10 rounded-full border-2 border-slate-700 flex justify-center p-1.5 group-hover:border-blue-500 transition-colors">
-						<div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>
-					</div>
-				</div>
+				
 			</section>
 
 			{/* AI Models Section */}
