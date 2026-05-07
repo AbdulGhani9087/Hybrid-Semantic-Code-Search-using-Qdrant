@@ -216,7 +216,7 @@ const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
                       {showPassword ? <Icons.EyeOff /> : <Icons.Eye />}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500" aria-live="polite">
                     <span>{password.length}/{passwordMinLength} characters</span>
                     <span className={isPasswordLongEnough ? 'text-emerald-400' : 'text-rose-400'}>
                       {isPasswordLongEnough ? 'Length ok' : 'Minimum 8'}
