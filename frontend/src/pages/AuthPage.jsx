@@ -12,6 +12,7 @@ const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
   const [rememberMe, setRememberMe] = useState(false)
   const passwordMinLength = 8
   const passwordProgress = Math.min(password.length / passwordMinLength, 1)
+  const isPasswordLongEnough = password.length >= passwordMinLength
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -217,11 +218,13 @@ const AuthPage = ({ onLogin, onBackToLanding, initialIsLogin = true }) => {
                   </div>
                   <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
                     <span>{password.length}/{passwordMinLength} characters</span>
-                    <span>{password.length >= passwordMinLength ? 'Length ok' : 'Minimum 8'}</span>
+                    <span className={isPasswordLongEnough ? 'text-emerald-400' : 'text-rose-400'}>
+                      {isPasswordLongEnough ? 'Length ok' : 'Minimum 8'}
+                    </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-slate-900/70 border border-slate-800">
                     <div
-                      className="h-full rounded-full bg-blue-600 transition-all"
+                      className={`h-full rounded-full transition-all ${isPasswordLongEnough ? 'bg-emerald-500' : 'bg-rose-500'}`}
                       style={{ width: `${passwordProgress * 100}%` }}
                     ></div>
                   </div>
